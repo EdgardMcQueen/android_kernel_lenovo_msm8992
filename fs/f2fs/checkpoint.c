@@ -468,22 +468,12 @@ retry:
 	new->inode = inode;
 	INIT_LIST_HEAD(&new->list);
 
-	spin_lock(&sbi->dir_inode_lock);
-	list_for_each(this, head) {
-		struct dir_inode_entry *entry;
-		entry = list_entry(this, struct dir_inode_entry, list);
-		if (entry->inode == inode) {
-			kmem_cache_free(inode_entry_slab, new);
-			goto out;
-		}
-	}
-	list_add_tail(&new->list, head);
-	sbi->n_dirty_dirs++;
+	spin_lock(&sbi->inode_lock[type]);
+	if (type != FILE_INODE || test_opt(sbi, DATA_FLUSH))
+		__add_dirty_inode(inode, type);
+	inode_inc_dirty_pages(inode);
+	spin_unlock(&sbi->inode_lock[type]);
 
-	BUG_ON(!S_ISDIR(inode->i_mode));
-out:
-	inc_page_count(sbi, F2FS_DIRTY_DENTS);
-	inode_inc_dirty_dents(inode);
 	SetPagePrivate(page);
 
 	spin_unlock(&sbi->dir_inode_lock);
